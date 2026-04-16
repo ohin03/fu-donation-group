@@ -12,10 +12,16 @@ import { fileURLToPath } from "url";
 dotenv.config();
 
 const url = process.env.MONGO_URL;
-const port = process.env.PORT;
+const port = process.env.PORT || 5000; // ✅ FIXED
+
 const app = express();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/* =========================
+   CORS CONFIG (FIXED)
+========================= */
 
 const configuredOrigins = (process.env.FRONTEND_URLS || "")
   .split(",")
@@ -23,57 +29,74 @@ const configuredOrigins = (process.env.FRONTEND_URLS || "")
   .filter(Boolean);
 
 const defaultAllowedOrigins = [
-  "https://mohipal-donater-group.vercel.app",
+  "https://fu-donation-group.vercel.app", // ✅ FIXED (your live frontend)
   "http://localhost:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001",
-  "https://fu-group.onrender.com",
 ];
 
-const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])];
-const allowAllCors = process.env.CORS_ALLOW_ALL === "true" || process.env.NODE_ENV !== "production";
+const allowedOrigins = [
+  ...new Set([...defaultAllowedOrigins, ...configuredOrigins]),
+];
+
+// ✅ FIXED safer production control
+const allowAllCors = process.env.CORS_ALLOW_ALL === "true";
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
+
     if (allowAllCors) return callback(null, true);
 
     const isLocalhost = /^http:\/\/localhost:\d+$/.test(origin);
     const isLoopbackIp = /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
     if (isLocalhost || isLoopbackIp || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+      return callback(null, true);
     }
+
+    return callback(new Error("Not allowed by CORS"));
   },
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
 };
 
-// Apply CORS with options
 app.use(cors(corsOptions));
 app.use(express.json());
 
+/* =========================
+   UPLOAD CONFIG
+========================= */
+
 const uploadsDir = path.join(__dirname, "uploads");
+
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Multer setup with local disk storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname || "").toLowerCase();
-    const safeExt = ext && [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext) ? ext : ".jpg";
+    const safeExt =
+      [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)
+        ? ext
+        : ".jpg";
+
     const randomStr = Math.random().toString(36).substring(2, 8);
+
     cb(null, `${Date.now()}-${randomStr}${safeExt}`);
   },
 });
 
 const upload = multer({ storage });
+
+/* =========================
+   HELPERS
+========================= */
 
 const getReadableUploadError = (error) => {
   if (!error) return "Unknown upload error";
@@ -87,50 +110,51 @@ const getReadableUploadError = (error) => {
   }
 };
 
-// admin pass setup
+/* =========================
+   ADMIN LOGIN
+========================= */
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-console.log("✅ Admin Password Loaded:", ADMIN_PASSWORD);
-console.log("✅ Local upload storage ready:", uploadsDir);
-
 app.post("/api/admin/login", (req, res) => {
-  console.log("Admin entered password");
   const { password } = req.body;
+
   if (password === ADMIN_PASSWORD) {
     return res.json({ success: true });
   }
+
   res.status(401).json({ success: false, message: "Invalid password" });
 });
 
-// POST donor with image
+/* =========================
+   CREATE DONOR
+========================= */
+
 app.post("/api/donors", (req, res) => {
   upload.single("image")(req, res, async (uploadErr) => {
     if (uploadErr) {
-      const readableError = getReadableUploadError(uploadErr);
-      console.error("❌ Image upload middleware error:", readableError);
       return res.status(500).json({
         message: "Image upload failed",
-        error: readableError,
+        error: getReadableUploadError(uploadErr),
       });
     }
 
     try {
-      // Validate image
       if (!req.file) {
-        console.log("❌ Image upload failed - no file received");
-        return res.status(400).json({ message: "Image file is required" });
+        return res
+          .status(400)
+          .json({ message: "Image file is required" });
       }
 
-      // Validate required fields
       const { name, bloodGroup, group, location, phone } = req.body;
+
       const resolvedBloodGroup = bloodGroup || group;
 
       if (!name || !resolvedBloodGroup || !location || !phone) {
-        console.log("❌ Missing required fields:", { name, bloodGroup: resolvedBloodGroup, location, phone });
-        return res.status(400).json({ message: "All fields (name, blood group, location, phone) are required" });
+        return res.status(400).json({
+          message: "All fields are required",
+        });
       }
-
-      console.log("📝 Creating donor with:", { name, bloodGroup: resolvedBloodGroup, location, phone, imageUrl: req.file.filename });
 
       const donor = new Donor({
         name: name.trim(),
@@ -141,10 +165,9 @@ app.post("/api/donors", (req, res) => {
       });
 
       await donor.save();
-      console.log("✅ Donor added successfully:", donor._id);
+
       return res.status(201).json(donor);
     } catch (err) {
-      console.error("❌ POST donor ERROR:", err);
       return res.status(500).json({
         message: "Error adding donor",
         error: err.message,
@@ -153,41 +176,51 @@ app.post("/api/donors", (req, res) => {
   });
 });
 
-app.get("/", (req, res) => {
-  res.status(200).send("Welcome to our Feni university blood donor api.");
-});
+/* =========================
+   STATIC FILES
+========================= */
+
 app.use("/uploads", express.static(uploadsDir));
 
-// GET + DELETE routes
+/* =========================
+   ROUTES
+========================= */
+
 app.use("/api/donors", donorRoutes);
 
-// MongoDB connection
+/* =========================
+   ROOT
+========================= */
+
+app.get("/", (req, res) => {
+  res.send("Welcome to Feni University Blood Donor API 🚀");
+});
+
+/* =========================
+   MONGO DB
+========================= */
+
 mongoose
   .connect(url)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ MongoDB Error:", err));
 
+/* =========================
+   GLOBAL ERROR HANDLER
+========================= */
+
 app.use((err, req, res, next) => {
-  const message =
-    err?.message ||
-    err?.error?.message ||
-    (typeof err === "string" ? err : null) ||
-    "Server error";
+  console.error("❌ Server Error:", err);
 
-  const details = (() => {
-    try {
-      return typeof err === "object" ? JSON.stringify(err) : String(err);
-    } catch {
-      return "Unable to serialize error";
-    }
-  })();
-
-  console.error("❌ Unhandled server error:", message, details);
-  res.status(err?.status || 500).json({
-    message,
-    details,
+  res.status(500).json({
+    message: err.message || "Server error",
   });
 });
 
-// Start server
-app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+/* =========================
+   START SERVER
+========================= */
+
+app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
+});
