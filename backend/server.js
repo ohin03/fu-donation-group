@@ -154,7 +154,7 @@ app.post("/api/donors", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.status(200).send("Welcome to our Mohipal blood donor api.");
+  res.status(200).send("Welcome to our Feni university blood donor api.");
 });
 app.use("/uploads", express.static(uploadsDir));
 
