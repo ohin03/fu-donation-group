@@ -218,7 +218,7 @@ app.use((err, req, res, next) => {
 if (fs.existsSync(frontendBuildPath)) {
   app.use(express.static(frontendBuildPath));
 
-  app.get("*", (req, res) => {
+  app.use((req, res) => {
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ message: "API route not found" });
     }
