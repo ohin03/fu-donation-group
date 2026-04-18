@@ -1,0 +1,20 @@
+{
+  "name": "fu_blard_group",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:backend": "npm --prefix backend install",
+    "install:frontend": "npm --prefix frontend install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run install:all && npm run build:frontend",
+    "start:backend": "npm --prefix backend start",
+    "start": "npm run start:backend"
+  },
+  "engines": {
+    "node": "22.22.0"
+  }
+}
