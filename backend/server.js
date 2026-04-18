@@ -189,12 +189,10 @@ app.use("/uploads", express.static(uploadsDir));
 app.use("/api/donors", donorRoutes);
 
 /* =========================
-   ROOT
+   FRONTEND BUILD SERVE
 ========================= */
 
-app.get("/", (req, res) => {
-  res.send("Welcome to Feni University Blood Donor API 🚀");
-});
+const frontendBuildPath = path.join(__dirname, "../frontend/build");
 
 /* =========================
    MONGO DB
@@ -217,12 +215,21 @@ app.use((err, req, res, next) => {
   });
 });
 
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
 
-app.use(express.static(path.join(__dirname, "../frontend/build")));
+  app.get("*", (req, res) => {
+    if (req.path.startsWith("/api/")) {
+      return res.status(404).json({ message: "API route not found" });
+    }
 
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/build/index.html"));
-});
+    return res.sendFile(path.join(frontendBuildPath, "index.html"));
+  });
+} else {
+  app.get("/", (req, res) => {
+    res.send("Welcome to Feni University Blood Donor API 🚀");
+  });
+}
 
 /* =========================
    START SERVER
