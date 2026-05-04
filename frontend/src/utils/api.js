@@ -5,7 +5,13 @@ const normalizeUrl = (url) => (url || "").trim().replace(/\/+$/, "");
 const getApiBaseUrl = () => {
   const envUrl = normalizeUrl(process.env.REACT_APP_API_URL);
   if (envUrl) return envUrl;
-  return "http://localhost:5000";
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:5000";
+  }
+  if (typeof window !== "undefined") {
+    return normalizeUrl(window.location.origin);
+  }
+  return "";
 };
 
 export const API_BASE_URL = getApiBaseUrl();

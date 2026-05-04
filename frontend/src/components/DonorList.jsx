@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import SearchBar from "./SearchBar";
 import { Phone, MapPin, Droplets, Heart, MessageCircle, Share2, ShieldCheck, Zap, PhoneCall } from "lucide-react";
+import api, { API_BASE_URL } from "../utils/api";
 
 const DonorList = () => {
   const [donors, setDonors] = useState([]);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    axios.get(`${process.env.REACT_APP_API_URL}/api/donors`)
+    api.get("/api/donors")
       .then(res => setDonors(res.data))
       .catch(err => console.log(err));
   }, []);
@@ -66,7 +66,7 @@ const DonorList = () => {
                 {/* Image Section with Overlay */}
                 <div className="card-media">
                   <img
-                    src={donor.image.startsWith('http') ? donor.image : `${process.env.REACT_APP_API_URL}/uploads/${donor.image}`}
+                    src={donor.image.startsWith('http') ? donor.image : `${API_BASE_URL}/uploads/${donor.image}`}
                     alt={donor.name}
                     className="donor-img-pro"
                   />
